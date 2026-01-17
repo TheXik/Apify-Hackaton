@@ -1,12 +1,13 @@
 {
 	"actorSpecification": 1,
 	"name": "talent-scout",
-	"title": "Talent Scout - AI Powered Candidate Finder",
-	"description": "Automatically search LinkedIn for candidates matching job requirements and rank them using AI scoring.",
-	"version": "0.1",
+	"title": "Talent Scout - GitHub Profile Finder",
+	"description": "Find GitHub developer profiles matching job requirements using Google Search. Returns profile URLs, bios, and skills.",
+	"version": "0.2",
 	"buildTag": "latest",
 	"meta": {
-		"templateId": "python-empty"
+		"templateId": "python-empty",
+		"generatedBy": "claude-opus-4"
 	},
 	"input": "./input_schema.json",
 	"dockerfile": "../Dockerfile"

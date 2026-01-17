@@ -4,6 +4,12 @@ All notable changes to the Talent Scout Actor will be documented in this file.
 
 ## [Unreleased]
 
+### v2 - Multi-Source Scraping
+- Added parallel scraping from 3 sources: LinkedIn, GitHub, Google
+- Results stored in separate named datasets (`linkedin`, `github`, `google`)
+- Normalized profile format across all sources
+- Added `sources` input to select which platforms to scrape
+
 ### Planning Phase
 - Created PRD.md with detailed specifications
 - Defined input/output schemas

@@ -1,29 +1,44 @@
 {
-    "title": "Talent Scout Input",
+    "title": "Talent Scout - GitHub Profile Finder",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
         "jobTitle": {
-            "title": "Job Title / Search Query",
+            "title": "Job Title",
             "type": "string",
-            "description": "The job title or search query to find candidates (e.g., 'Senior Frontend Developer')",
+            "description": "The job title/role to search for (e.g., 'Frontend Developer', 'Machine Learning Engineer')",
             "editor": "textfield",
-            "prefill": "Senior Frontend Developer"
+            "prefill": "Frontend Developer"
+        },
+        "jobDescription": {
+            "title": "Job Description",
+            "type": "string",
+            "description": "Optional job description for context",
+            "editor": "textarea",
+            "nullable": true
+        },
+        "requiredSkills": {
+            "title": "Required Skills",
+            "type": "array",
+            "description": "Skills to search for (e.g., 'React', 'Python', 'Kubernetes')",
+            "editor": "stringList",
+            "prefill": ["React", "TypeScript"],
+            "default": []
         },
         "location": {
             "title": "Location",
             "type": "string",
-            "description": "Geographic location filter (e.g., 'Prague', 'New York')",
+            "description": "Geographic location filter (e.g., 'Prague', 'San Francisco')",
             "editor": "textfield",
             "nullable": true
         },
-        "maxCandidates": {
-            "title": "Maximum Candidates",
+        "maxResults": {
+            "title": "Maximum Results",
             "type": "integer",
-            "description": "Maximum number of candidates to return",
-            "default": 20,
+            "description": "Maximum number of GitHub profiles to return",
+            "default": 30,
             "minimum": 1,
-            "maximum": 1000
+            "maximum": 100
         }
     },
     "required": ["jobTitle"]
