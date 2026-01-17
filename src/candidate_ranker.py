@@ -65,6 +65,21 @@ class CandidateRanker:
         b = np.array(vec_b)
         return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
     
+    def _normalize_skills(self, skills: list) -> list[str]:
+        """Normalize skills list - handles both string and dict formats."""
+        if not skills:
+            return []
+        result = []
+        for skill in skills:
+            if isinstance(skill, str):
+                result.append(skill)
+            elif isinstance(skill, dict):
+                # LinkedIn returns skills as {"name": "Python", ...}
+                result.append(skill.get("name", str(skill)))
+            else:
+                result.append(str(skill))
+        return result
+    
     def candidate_to_text(self, candidate: dict) -> str:
         """Convert candidate profile to searchable text."""
         parts = []
@@ -74,7 +89,8 @@ class CandidateRanker:
         if candidate.get("bio"):
             parts.append(f"Bio: {candidate['bio']}")
         if candidate.get("skills"):
-            parts.append(f"Skills: {', '.join(candidate['skills'])}")
+            skills = self._normalize_skills(candidate['skills'])
+            parts.append(f"Skills: {', '.join(skills)}")
         if candidate.get("experience"):
             parts.append(f"Experience: {candidate['experience']}")
         if candidate.get("location"):
@@ -199,7 +215,7 @@ JOB REQUIREMENTS:
 CANDIDATE PROFILE:
 - Name: {candidate.get('name', 'Unknown')}
 - Bio: {candidate.get('bio', 'N/A')}
-- Skills: {', '.join(candidate.get('skills', []))}
+- Skills: {', '.join(self._normalize_skills(candidate.get('skills', [])))}
 - Experience: {candidate.get('experience', 'N/A')}
 
 Return a JSON object with:
