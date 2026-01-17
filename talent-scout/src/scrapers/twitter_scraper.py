@@ -71,6 +71,7 @@ class TwitterScraper:
         # Prepare Actor input
         actor_input = {
             "searchQueries": [search_query],
+            "tweetsDesired": max_items,
             "maxItems": max_items,
         }
         

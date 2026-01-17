@@ -289,7 +289,7 @@ async def test_pipeline():
         twitter_scraper = TwitterScraper(apify_token)
         twitter_profiles = twitter_scraper.search(
             position=test_input["jobTitle"],
-            max_items=5  # Limit for testing
+            max_items=10  # Match user request
         )
         print(f"   ✅ Found {len(twitter_profiles)} Twitter profiles")
         all_candidates.extend(twitter_profiles)

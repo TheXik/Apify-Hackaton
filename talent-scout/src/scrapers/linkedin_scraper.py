@@ -54,20 +54,15 @@ class LinkedInScraper:
         search_query = self._build_search_query(job_title, skills)
         
         # Prepare Actor input
+        # Validated schema: keywords (string) + locations (array)
         actor_input = {
-            "searchUrl": self._build_search_url(search_query, location),
-            "maxResults": max_items,
-        }
-        
-        # Alternative input format - some Actors use keyword-based input
-        alt_input = {
             "keywords": search_query,
-            "location": location or "",
+            "locations": [location] if location else [],
             "maxItems": max_items,
         }
         
         try:
-            # Try primary input format
+            # Run the LinkedIn Scraper Actor
             run = self.client.actor(LINKEDIN_ACTOR_ID).call(
                 run_input=actor_input,
                 timeout_secs=300,
@@ -83,24 +78,7 @@ class LinkedInScraper:
             
         except Exception as e:
             print(f"LinkedIn search failed: {e}")
-            
-            # Try alternative input format
-            try:
-                run = self.client.actor(LINKEDIN_ACTOR_ID).call(
-                    run_input=alt_input,
-                    timeout_secs=300,
-                )
-                
-                profiles = []
-                for item in self.client.dataset(run["defaultDatasetId"]).iterate_items():
-                    profile = self._normalize_profile(item)
-                    profiles.append(profile)
-                
-                return profiles
-                
-            except Exception as e2:
-                print(f"LinkedIn search (alt format) also failed: {e2}")
-                return []
+            return []
     
     def _build_search_query(self, job_title: str, skills: Optional[list[str]] = None) -> str:
         """Build LinkedIn search query string."""

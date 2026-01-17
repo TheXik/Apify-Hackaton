@@ -15,7 +15,13 @@
     ],
     "location": "Prague",
     "experienceYears": 3,
-    "topK": 5,
+    "maxCandidates": 5,
+    "sources": [
+        "linkedin",
+        "twitter",
+        "github"
+    ],
+    "topK": 3,
     "candidates": [
         {
             "name": "Jan Novák",
