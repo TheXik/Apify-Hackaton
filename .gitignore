@@ -70,3 +70,6 @@ logs/
 
 .venv/
 .venv/*
+
+node_modules/
+web/node_modules/

@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white border border-gray-100 shadow-xl shadow-gray-100/50 rounded-2xl;
+  }
+}
+
+body {
+  background-color: #f8fafc;
+  /* gray-50 */
+  color: #0f172a;
+  /* slate-900 */
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

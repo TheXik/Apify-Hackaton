@@ -169,11 +169,33 @@ class LinkedInScraper:
         # Experience list
         experiences = profile.get("experience", profile.get("positions", []))
         if experiences and isinstance(experiences, list):
-            num_roles = len(experiences)
-            if num_roles > 0:
-                parts.append(f"{num_roles} previous role(s)")
+            for exp in experiences:
+                if isinstance(exp, dict):
+                    title = exp.get("title", "Unknown Role")
+                    company = exp.get("companyName", exp.get("company", "Unknown Company"))
+                    start_val = exp.get("startDate")
+                    end_val = exp.get("endDate")
+                    
+                    def fmt_date(d):
+                        if not d: return ""
+                        if isinstance(d, dict):
+                            # Handle date object {year: 2020, month: 1, ...}
+                            parts = []
+                            if d.get("month"): parts.append(str(d["month"]))
+                            if d.get("year"): parts.append(str(d["year"]))
+                            return "/".join(parts)
+                        return str(d).replace("null", "")
+
+                    start = fmt_date(start_val)
+                    end = fmt_date(end_val) or "Present"
+                    
+                    date_str = ""
+                    if start:
+                        date_str = f" ({start} - {end})"
+                    
+                    parts.append(f"{title} at {company}{date_str}")
         
-        return ". ".join(parts) if parts else ""
+        return "\n".join(parts) if parts else ""
 
 
 # Convenience function for direct use

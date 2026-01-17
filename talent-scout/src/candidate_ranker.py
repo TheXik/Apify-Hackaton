@@ -169,7 +169,14 @@ class CandidateRanker:
                     "missingSkills": evaluation.get("missingSkills", []),
                     "strengths": evaluation.get("strengths", []),
                     "concerns": evaluation.get("concerns", []),
-                    "summary": evaluation.get("summary", "")
+                    "score": evaluation.get("score", 0),
+                    "matchedSkills": evaluation.get("matchedSkills", []),
+                    "missingSkills": evaluation.get("missingSkills", []),
+                    "strengths": evaluation.get("strengths", []),
+                    "concerns": evaluation.get("concerns", []),
+                    "summary": evaluation.get("summary", ""),
+                    "workExperience": evaluation.get("workExperience", []),
+                    "languages": evaluation.get("languages", [])
                 })
                 
             except Exception as e:
@@ -209,7 +216,9 @@ Return a JSON object with:
     "missingSkills": ["skill3"],
     "strengths": ["strength1", "strength2"],
     "concerns": ["concern1"],
-    "summary": "2-3 sentence summary of fit"
+    "summary": "2-3 sentence summary of fit",
+    "workExperience": [{{ "start": "2020", "end": "2024", "role": "Title", "company": "Company" }}],
+    "languages": ["English (Native)", "Czech (Fluent)"]
 }}"""
     
     def rank_candidates(
