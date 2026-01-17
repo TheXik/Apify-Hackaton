@@ -1,5 +1,5 @@
 {
-    "title": "Talent Scout Input",
+    "title": "Talent Scout - AI Candidate Finder",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
@@ -10,6 +10,30 @@
             "editor": "textfield",
             "prefill": "Senior Frontend Developer"
         },
+        "jobDescription": {
+            "title": "Job Description",
+            "type": "string",
+            "description": "Detailed description of the job for AI ranking. Required for AI-powered ranking.",
+            "editor": "textarea"
+        },
+        "requiredSkills": {
+            "title": "Required Skills",
+            "type": "array",
+            "description": "List of must-have skills for this position",
+            "items": {
+                "type": "string"
+            },
+            "editor": "stringList"
+        },
+        "niceToHave": {
+            "title": "Nice to Have Skills",
+            "type": "array",
+            "description": "Optional skills that would be a bonus",
+            "items": {
+                "type": "string"
+            },
+            "editor": "stringList"
+        },
         "location": {
             "title": "Location",
             "type": "string",
@@ -17,14 +41,37 @@
             "editor": "textfield",
             "nullable": true
         },
-        "maxCandidates": {
-            "title": "Maximum Candidates",
+        "experienceYears": {
+            "title": "Minimum Experience (years)",
             "type": "integer",
-            "description": "Maximum number of candidates to return",
+            "description": "Minimum years of relevant experience",
+            "default": 0,
+            "minimum": 0
+        },
+        "maxCandidates": {
+            "title": "Maximum Candidates to Scrape",
+            "type": "integer",
+            "description": "Maximum number of candidates to scrape from LinkedIn",
             "default": 20,
             "minimum": 1,
             "maximum": 1000
+        },
+        "enableRanking": {
+            "title": "Enable AI Ranking",
+            "type": "boolean",
+            "description": "Enable AI-powered candidate ranking (requires OPENAI_API_KEY and job description)",
+            "default": true
+        },
+        "topK": {
+            "title": "Top K Candidates",
+            "type": "integer",
+            "description": "Number of top candidates to return after AI ranking",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 100
         }
     },
-    "required": ["jobTitle"]
+    "required": [
+        "jobTitle"
+    ]
 }
