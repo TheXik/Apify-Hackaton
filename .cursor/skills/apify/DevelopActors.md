@@ -53,3 +53,4 @@ This Actor automatically searches for and evaluates ideal candidates for job pos
 - Create a `PRD.md` (Product Requirements Document) file with detailed specs for this Actor to refer to during implementation
 - Create a `CHANGELOG.md` file where you will document all progress/changes with each iteration
 - Ask me any clarifying questions to fill in the gaps before we proceed with the implementation
+- Use this https://apify.com/apify/rag-web-browser.md to scrape the web pages
