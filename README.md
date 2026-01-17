@@ -61,7 +61,7 @@ APIFY_TOKEN=your_apify_token_here
 
 - **Apify SDK** – Web scraping a orchestrace
 - **LLM** – Evaluace a ranking kandidátů
-- **TypeScript/JavaScript** – Hlavní jazyk
+- **Python** – Hlavní jazyk
 
 ## 📄 Licence
 

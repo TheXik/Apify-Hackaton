@@ -1,0 +1,13 @@
+{
+	"actorSpecification": 1,
+	"name": "talent-scout",
+	"title": "Talent Scout - AI Powered Candidate Finder",
+	"description": "Automatically search LinkedIn for candidates matching job requirements and rank them using AI scoring.",
+	"version": "0.1",
+	"buildTag": "latest",
+	"meta": {
+		"templateId": "python-empty"
+	},
+	"input": "./input_schema.json",
+	"dockerfile": "../Dockerfile"
+}

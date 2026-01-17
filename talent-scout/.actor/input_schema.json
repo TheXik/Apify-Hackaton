@@ -1,0 +1,30 @@
+{
+    "title": "Talent Scout Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "jobTitle": {
+            "title": "Job Title / Search Query",
+            "type": "string",
+            "description": "The job title or search query to find candidates (e.g., 'Senior Frontend Developer')",
+            "editor": "textfield",
+            "prefill": "Senior Frontend Developer"
+        },
+        "location": {
+            "title": "Location",
+            "type": "string",
+            "description": "Geographic location filter (e.g., 'Prague', 'New York')",
+            "editor": "textfield",
+            "nullable": true
+        },
+        "maxCandidates": {
+            "title": "Maximum Candidates",
+            "type": "integer",
+            "description": "Maximum number of candidates to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 1000
+        }
+    },
+    "required": ["jobTitle"]
+}
