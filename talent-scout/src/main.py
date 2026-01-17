@@ -16,11 +16,10 @@ from apify import Actor
 from apify_client import ApifyClient
 
 from .candidate_ranker import CandidateRanker
-from .scrapers import TwitterScraper
+from .scrapers import TwitterScraper, GitHubScraper, LinkedInScraper
 
 
 # Actor IDs
-LINKEDIN_ACTOR_ID = "harvestapi/linkedin-profile-search"
 GOOGLE_ACTOR_ID = "apify/google-search-scraper"
 
 
@@ -64,27 +63,23 @@ async def main() -> None:
         # Search LinkedIn
         if "linkedin" in sources:
             await Actor.set_status_message("Searching LinkedIn for candidates...")
-            linkedin_profiles = await search_linkedin(
-                job_title=job_title,
-                location=location,
-                max_items=max_candidates,
-            )
-            
-            if linkedin_profiles:
-                Actor.log.info(f"✅ Found {len(linkedin_profiles)} profiles from LinkedIn")
-                for profile in linkedin_profiles:
-                    all_candidates.append({
-                        "name": profile.get("fullName", profile.get("name", "Unknown")),
-                        "bio": profile.get("headline", profile.get("summary", "")),
-                        "skills": profile.get("skills", []),
-                        "experience": profile.get("experience", ""),
-                        "location": profile.get("location", ""),
-                        "profileUrls": {
-                            "linkedin": profile.get("profileUrl", profile.get("url", ""))
-                        },
-                        "source": "linkedin",
-                        "rawProfile": profile
-                    })
+            try:
+                linkedin_scraper = LinkedInScraper()
+                linkedin_profiles = linkedin_scraper.search(
+                    job_title=job_title,
+                    location=location,
+                    skills=required_skills,
+                    max_items=max_candidates,
+                )
+                
+                if linkedin_profiles:
+                    Actor.log.info(f"✅ Found {len(linkedin_profiles)} profiles from LinkedIn")
+                    all_candidates.extend(linkedin_profiles)
+                else:
+                    Actor.log.info("No profiles found from LinkedIn")
+                    
+            except Exception as e:
+                Actor.log.warning(f"LinkedIn search failed: {e}")
         
         # Search Twitter
         if "twitter" in sources:
@@ -103,37 +98,75 @@ async def main() -> None:
             except Exception as e:
                 Actor.log.warning(f"Twitter search failed: {e}")
         
-        # Search GitHub
+        # Search GitHub (Google Search -> GitHub Profile Scraper)
         if "github" in sources and client:
-            await Actor.set_status_message("Searching GitHub for candidates...")
+            await Actor.set_status_message("Searching for GitHub profiles via Google...")
             try:
+                # Step 1: Use Google to find GitHub profile URLs
                 search_query = build_github_search_query(
                     job_title=job_title,
                     skills=required_skills,
                     location=location,
                 )
                 
-                github_profiles = await search_github_profiles(
+                google_results = await search_github_via_google(
                     client=client,
                     query=search_query,
                     max_results=max_candidates,
                 )
                 
-                if github_profiles:
-                    Actor.log.info(f"✅ Found {len(github_profiles)} profiles from GitHub")
-                    for profile in github_profiles:
-                        all_candidates.append({
-                            "name": profile.get("name", profile.get("username", "Unknown")),
-                            "bio": profile.get("bio", ""),
-                            "skills": profile.get("skills", []),
-                            "experience": "",
-                            "location": "",
-                            "profileUrls": {
-                                "github": profile.get("profileUrl", profile.get("url", ""))
-                            },
-                            "source": "github",
-                            "rawProfile": profile
-                        })
+                if google_results:
+                    Actor.log.info(f"✅ Found {len(google_results)} GitHub URLs via Google")
+                    
+                    # Step 2: Enrich with actual GitHub profile data
+                    await Actor.set_status_message(f"Enriching {len(google_results)} GitHub profiles...")
+                    
+                    try:
+                        github_scraper = GitHubScraper()
+                        profile_urls = [r.get("profileUrl", r.get("url", "")) for r in google_results]
+                        
+                        enriched_profiles = github_scraper.scrape_profiles(
+                            profile_urls=profile_urls,
+                            max_items=max_candidates,
+                        )
+                        
+                        if enriched_profiles:
+                            Actor.log.info(f"✅ Enriched {len(enriched_profiles)} GitHub profiles")
+                            all_candidates.extend(enriched_profiles)
+                        else:
+                            # Fallback to Google results if scraping fails
+                            Actor.log.warning("GitHub enrichment failed, using Google results")
+                            for profile in google_results:
+                                all_candidates.append({
+                                    "name": profile.get("name", profile.get("username", "Unknown")),
+                                    "bio": profile.get("bio", ""),
+                                    "skills": profile.get("skills", []),
+                                    "experience": "",
+                                    "location": "",
+                                    "profileUrls": {
+                                        "github": profile.get("profileUrl", profile.get("url", ""))
+                                    },
+                                    "source": "github",
+                                    "rawProfile": profile
+                                })
+                                
+                    except Exception as enrich_error:
+                        Actor.log.warning(f"GitHub enrichment failed: {enrich_error}, using Google results")
+                        for profile in google_results:
+                            all_candidates.append({
+                                "name": profile.get("name", profile.get("username", "Unknown")),
+                                "bio": profile.get("bio", ""),
+                                "skills": profile.get("skills", []),
+                                "experience": "",
+                                "location": "",
+                                "profileUrls": {
+                                    "github": profile.get("profileUrl", profile.get("url", ""))
+                                },
+                                "source": "github",
+                                "rawProfile": profile
+                            })
+                else:
+                    Actor.log.info("No GitHub profiles found via Google")
                         
             except Exception as e:
                 Actor.log.warning(f"GitHub search failed: {e}")
@@ -152,7 +185,11 @@ async def main() -> None:
             })
             return
         
-        Actor.log.info(f"📊 Total candidates from all sources: {len(all_candidates)}")
+        Actor.log.info(f"📊 Total candidates from all sources (before dedup): {len(all_candidates)}")
+        
+        # Deduplicate candidates from multiple sources
+        all_candidates = deduplicate_candidates(all_candidates)
+        Actor.log.info(f"📊 Unique candidates after deduplication: {len(all_candidates)}")
         
         # AI Ranking (if enabled and OpenAI key available)
         if enable_ranking:
@@ -229,15 +266,142 @@ async def main() -> None:
         await Actor.set_status_message(f"Done! Found {len(all_candidates)} candidates (unranked)")
 
 
-async def search_linkedin(
-    job_title: str,
-    location: str | None,
-    max_items: int,
-) -> list[dict]:
-    """Search LinkedIn for candidate profiles."""
-    # Placeholder - LinkedIn search implementation
-    # Would call LINKEDIN_ACTOR_ID with appropriate input
-    return []
+def deduplicate_candidates(candidates: list[dict]) -> list[dict]:
+    """
+    Deduplicate candidates that appear from multiple sources.
+    
+    Merges profile data when the same person is found on multiple platforms.
+    Uses profile URLs and username matching to identify duplicates.
+    
+    Args:
+        candidates: List of candidate dicts from all sources
+        
+    Returns:
+        Deduplicated list with merged profile data
+    """
+    if not candidates:
+        return []
+    
+    # Track unique candidates by normalized identifiers
+    seen_urls = {}  # url -> candidate index
+    seen_usernames = {}  # normalized username -> candidate index
+    unique_candidates = []
+    
+    for candidate in candidates:
+        # Extract identifiers
+        profile_urls = candidate.get("profileUrls", {})
+        username = candidate.get("username", "").lower()
+        name = candidate.get("name", "").lower().strip()
+        
+        # Check if we've seen this candidate before
+        matched_idx = None
+        
+        # Match by profile URLs
+        for platform, url in profile_urls.items():
+            if url:
+                normalized_url = normalize_url(url)
+                if normalized_url in seen_urls:
+                    matched_idx = seen_urls[normalized_url]
+                    break
+        
+        # Match by username (if no URL match)
+        if matched_idx is None and username:
+            if username in seen_usernames:
+                matched_idx = seen_usernames[username]
+        
+        if matched_idx is not None:
+            # Merge with existing candidate
+            unique_candidates[matched_idx] = merge_candidates(
+                unique_candidates[matched_idx], 
+                candidate
+            )
+        else:
+            # New unique candidate
+            idx = len(unique_candidates)
+            unique_candidates.append(candidate)
+            
+            # Register identifiers
+            for platform, url in profile_urls.items():
+                if url:
+                    seen_urls[normalize_url(url)] = idx
+            if username:
+                seen_usernames[username] = idx
+    
+    return unique_candidates
+
+
+def normalize_url(url: str) -> str:
+    """Normalize URL for comparison."""
+    if not url:
+        return ""
+    
+    # Remove protocol, www, trailing slashes
+    url = url.lower()
+    url = re.sub(r'^https?://', '', url)
+    url = re.sub(r'^www\.', '', url)
+    url = url.rstrip('/')
+    
+    # Normalize x.com to twitter.com
+    url = url.replace('x.com/', 'twitter.com/')
+    
+    return url
+
+
+def merge_candidates(existing: dict, new: dict) -> dict:
+    """
+    Merge two candidate profiles from different sources.
+    
+    Combines profile URLs and takes best available data for each field.
+    
+    Args:
+        existing: Existing candidate dict
+        new: New candidate dict to merge
+        
+    Returns:
+        Merged candidate dict
+    """
+    merged = existing.copy()
+    
+    # Merge profile URLs
+    existing_urls = merged.get("profileUrls", {})
+    new_urls = new.get("profileUrls", {})
+    merged["profileUrls"] = {**existing_urls, **new_urls}
+    
+    # Track sources
+    existing_sources = merged.get("sources", [merged.get("source", "unknown")])
+    if isinstance(existing_sources, str):
+        existing_sources = [existing_sources]
+    new_source = new.get("source", "unknown")
+    if new_source not in existing_sources:
+        existing_sources.append(new_source)
+    merged["sources"] = existing_sources
+    merged["source"] = "multi"  # Mark as multi-source
+    
+    # Merge skills (combine and deduplicate)
+    existing_skills = set(merged.get("skills", []))
+    new_skills = set(new.get("skills", []))
+    merged["skills"] = list(existing_skills | new_skills)
+    
+    # Take non-empty values for other fields
+    for field in ["name", "bio", "experience", "location", "company", "email"]:
+        if not merged.get(field) and new.get(field):
+            merged[field] = new[field]
+    
+    # Merge stats if available
+    if new.get("stats"):
+        existing_stats = merged.get("stats", {})
+        merged["stats"] = {**existing_stats, **new.get("stats", {})}
+    
+    # Keep raw profiles from all sources
+    if "rawProfiles" not in merged:
+        merged["rawProfiles"] = {}
+        if merged.get("rawProfile"):
+            merged["rawProfiles"][merged.get("source", "unknown")] = merged.pop("rawProfile")
+    
+    if new.get("rawProfile"):
+        merged["rawProfiles"][new.get("source", "unknown")] = new["rawProfile"]
+    
+    return merged
 
 
 def build_github_search_query(
@@ -263,12 +427,12 @@ def build_github_search_query(
     return query
 
 
-async def search_github_profiles(
+async def search_github_via_google(
     client: ApifyClient,
     query: str,
     max_results: int,
 ) -> list[dict]:
-    """Search Google for GitHub profiles and extract profile data."""
+    """Search Google for GitHub profile URLs."""
     
     # Calculate pages needed (10 results per page)
     pages_needed = min((max_results + 9) // 10, 10)  # Max 10 pages
