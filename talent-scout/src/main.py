@@ -1,6 +1,6 @@
 """Talent Scout - AI Powered Candidate Finder.
 
-Combines LinkedIn scraping with AI-powered candidate ranking.
+Combines multi-source scraping (LinkedIn, Twitter, GitHub) with AI-powered candidate ranking.
 """
 
 from __future__ import annotations
@@ -13,9 +13,10 @@ from apify import Actor
 from apify_client import ApifyClient
 
 from .candidate_ranker import CandidateRanker
+from .scrapers import TwitterScraper
 
 
-# LinkedIn Search Actor ID
+# Actor IDs
 LINKEDIN_ACTOR_ID = "harvestapi/linkedin-profile-search"
 
 
@@ -35,6 +36,9 @@ async def main() -> None:
         enable_ranking = actor_input.get("enableRanking", True)
         top_k = actor_input.get("topK", 10)
         
+        # Source toggles
+        sources = actor_input.get("sources", ["linkedin", "twitter"])
+        
         # Validate required inputs
         if not job_title:
             await Actor.fail("Missing required input: jobTitle is required")
@@ -43,51 +47,75 @@ async def main() -> None:
         Actor.log.info(f"🎯 Searching for: {job_title}")
         Actor.log.info(f"📍 Location: {location or 'Any'}")
         Actor.log.info(f"📊 Max candidates: {max_candidates}")
+        Actor.log.info(f"🔍 Sources: {', '.join(sources)}")
         Actor.log.info(f"🤖 AI Ranking: {'Enabled' if enable_ranking else 'Disabled'}")
         
-        # Search LinkedIn for candidates
-        await Actor.set_status_message("Searching LinkedIn for candidates...")
-        profiles = await search_linkedin(
-            job_title=job_title,
-            location=location,
-            max_items=max_candidates,
-        )
+        all_candidates = []
         
-        if not profiles:
-            Actor.log.warning("No candidates found on LinkedIn")
+        # Search LinkedIn
+        if "linkedin" in sources:
+            await Actor.set_status_message("Searching LinkedIn for candidates...")
+            linkedin_profiles = await search_linkedin(
+                job_title=job_title,
+                location=location,
+                max_items=max_candidates,
+            )
+            
+            if linkedin_profiles:
+                Actor.log.info(f"✅ Found {len(linkedin_profiles)} profiles from LinkedIn")
+                for profile in linkedin_profiles:
+                    all_candidates.append({
+                        "name": profile.get("fullName", profile.get("name", "Unknown")),
+                        "bio": profile.get("headline", profile.get("summary", "")),
+                        "skills": profile.get("skills", []),
+                        "experience": profile.get("experience", ""),
+                        "location": profile.get("location", ""),
+                        "profileUrls": {
+                            "linkedin": profile.get("profileUrl", profile.get("url", ""))
+                        },
+                        "source": "linkedin",
+                        "rawProfile": profile
+                    })
+        
+        # Search Twitter
+        if "twitter" in sources:
+            await Actor.set_status_message("Searching Twitter for candidates...")
+            try:
+                twitter_scraper = TwitterScraper()
+                twitter_candidates = twitter_scraper.search(
+                    position=job_title,
+                    max_items=max_candidates
+                )
+                
+                if twitter_candidates:
+                    Actor.log.info(f"✅ Found {len(twitter_candidates)} profiles from Twitter")
+                    all_candidates.extend(twitter_candidates)
+                    
+            except Exception as e:
+                Actor.log.warning(f"Twitter search failed: {e}")
+        
+        # Check if we found any candidates
+        if not all_candidates:
+            Actor.log.warning("No candidates found from any source")
             await Actor.push_data({
                 "candidates": [],
                 "metadata": {
                     "totalFound": 0,
                     "searchQuery": job_title,
+                    "sources": sources,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             })
             return
         
-        Actor.log.info(f"✅ Found {len(profiles)} profiles from LinkedIn")
-        
-        # Convert LinkedIn profiles to candidate format
-        candidates = []
-        for profile in profiles:
-            candidates.append({
-                "name": profile.get("fullName", profile.get("name", "Unknown")),
-                "bio": profile.get("headline", profile.get("summary", "")),
-                "skills": profile.get("skills", []),
-                "experience": profile.get("experience", ""),
-                "location": profile.get("location", ""),
-                "profileUrls": {
-                    "linkedin": profile.get("profileUrl", profile.get("url", ""))
-                },
-                "rawProfile": profile  # Keep original data
-            })
+        Actor.log.info(f"📊 Total candidates from all sources: {len(all_candidates)}")
         
         # AI Ranking (if enabled and OpenAI key available)
         if enable_ranking:
             openai_api_key = os.environ.get("OPENAI_API_KEY")
             
             if openai_api_key and job_description:
-                await Actor.set_status_message(f"Ranking {len(candidates)} candidates with AI...")
+                await Actor.set_status_message(f"Ranking {len(all_candidates)} candidates with AI...")
                 Actor.log.info("🤖 Starting AI ranking...")
                 
                 try:
@@ -104,7 +132,7 @@ async def main() -> None:
                     
                     ranked_candidates = ranker.rank_candidates(
                         job_input=job_input,
-                        candidates=candidates,
+                        candidates=all_candidates,
                         top_k=top_k
                     )
                     
@@ -113,18 +141,20 @@ async def main() -> None:
                     # Push ranked results
                     await Actor.push_data({
                         "jobTitle": job_title,
-                        "totalFound": len(profiles),
+                        "totalFound": len(all_candidates),
                         "ranked": True,
+                        "sources": sources,
                         "candidates": ranked_candidates,
                         "metadata": {
                             "searchQuery": job_title,
                             "location": location,
+                            "sources": sources,
                             "timestamp": datetime.now(timezone.utc).isoformat(),
                         }
                     })
                     
                     await Actor.set_status_message(
-                        f"Done! Ranked {len(ranked_candidates)} of {len(profiles)} candidates"
+                        f"Done! Ranked {len(ranked_candidates)} of {len(all_candidates)} candidates"
                     )
                     return
                     
@@ -137,20 +167,22 @@ async def main() -> None:
                 if not job_description:
                     Actor.log.warning("No job description provided - skipping AI ranking")
         
-        # Fallback: Push unranked profiles
+        # Fallback: Push unranked candidates
         await Actor.push_data({
             "jobTitle": job_title,
-            "totalFound": len(profiles),
+            "totalFound": len(all_candidates),
             "ranked": False,
-            "candidates": candidates,
+            "sources": sources,
+            "candidates": all_candidates,
             "metadata": {
                 "searchQuery": job_title,
                 "location": location,
+                "sources": sources,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         })
         
-        await Actor.set_status_message(f"Done! Found {len(profiles)} candidates (unranked)")
+        await Actor.set_status_message(f"Done! Found {len(all_candidates)} candidates (unranked)")
 
 
 async def search_linkedin(

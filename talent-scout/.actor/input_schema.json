@@ -4,9 +4,9 @@
     "schemaVersion": 1,
     "properties": {
         "jobTitle": {
-            "title": "Job Title / Search Query",
+            "title": "Job Title / Position",
             "type": "string",
-            "description": "The job title or search query to find candidates (e.g., 'Senior Frontend Developer')",
+            "description": "The job title or position to search for (e.g., 'Senior Frontend Developer', 'AI ML Engineer')",
             "editor": "textfield",
             "prefill": "Senior Frontend Developer"
         },
@@ -48,13 +48,36 @@
             "default": 0,
             "minimum": 0
         },
+        "sources": {
+            "title": "Candidate Sources",
+            "type": "array",
+            "description": "Which platforms to search for candidates",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "linkedin",
+                    "twitter",
+                    "github"
+                ]
+            },
+            "default": [
+                "linkedin",
+                "twitter"
+            ],
+            "editor": "select",
+            "enumTitles": [
+                "LinkedIn",
+                "Twitter/X",
+                "GitHub"
+            ]
+        },
         "maxCandidates": {
-            "title": "Maximum Candidates to Scrape",
+            "title": "Max Candidates per Source",
             "type": "integer",
-            "description": "Maximum number of candidates to scrape from LinkedIn",
+            "description": "Maximum number of candidates to scrape from each source",
             "default": 20,
             "minimum": 1,
-            "maximum": 1000
+            "maximum": 100
         },
         "enableRanking": {
             "title": "Enable AI Ranking",
