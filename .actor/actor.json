@@ -1,0 +1,7 @@
+{
+    "actorSpecification": 1,
+    "name": "talent-scout",
+    "version": "0.1",
+    "buildTag": "latest",
+    "environmentVariables": {}
+}
