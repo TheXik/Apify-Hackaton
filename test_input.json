@@ -1,142 +1,25 @@
 {
     "jobTitle": "Senior Frontend Developer",
-    "jobDescription": "We are looking for an experienced frontend developer to join our team. You will be responsible for building user interfaces, implementing responsive designs, and working closely with designers and backend developers. The ideal candidate has strong JavaScript skills and experience with modern frameworks.",
+    "jobDescription": "We are looking for an experienced frontend developer with strong React and TypeScript skills. You will work on our main product, building modern UI components.",
     "requiredSkills": [
         "React",
         "TypeScript",
-        "CSS",
-        "JavaScript"
+        "JavaScript",
+        "CSS"
     ],
     "niceToHave": [
         "Next.js",
-        "Testing",
         "GraphQL",
-        "Tailwind"
+        "Testing"
     ],
     "location": "Prague",
     "experienceYears": 3,
-    "maxCandidates": 5,
     "sources": [
         "linkedin",
         "twitter",
         "github"
     ],
-    "topK": 3,
-    "candidates": [
-        {
-            "name": "Jan Novák",
-            "bio": "Senior software engineer with 6 years of experience building web applications. Passionate about clean code and user experience.",
-            "skills": [
-                "React",
-                "TypeScript",
-                "Node.js",
-                "GraphQL",
-                "CSS",
-                "Next.js",
-                "Jest"
-            ],
-            "experience": "6 years as frontend developer at tech startups in Prague. Led team of 3 developers.",
-            "profileUrls": {
-                "linkedin": "https://linkedin.com/in/jan-novak",
-                "github": "https://github.com/jnovak"
-            }
-        },
-        {
-            "name": "Marie Svobodová",
-            "bio": "Full-stack developer focused on React ecosystem. Love building accessible and performant web apps.",
-            "skills": [
-                "React",
-                "JavaScript",
-                "Python",
-                "Django",
-                "HTML",
-                "CSS"
-            ],
-            "experience": "4 years of web development, 2 years specifically with React.",
-            "profileUrls": {
-                "linkedin": "https://linkedin.com/in/marie-svobodova"
-            }
-        },
-        {
-            "name": "Petr Král",
-            "bio": "Backend developer transitioning to full-stack. Strong in Java and learning React.",
-            "skills": [
-                "Java",
-                "Spring Boot",
-                "SQL",
-                "React",
-                "JavaScript"
-            ],
-            "experience": "5 years backend development, 1 year learning frontend.",
-            "profileUrls": {
-                "github": "https://github.com/petrkral"
-            }
-        },
-        {
-            "name": "Anna Čermáková",
-            "bio": "UX-focused frontend developer. Creates beautiful, accessible interfaces.",
-            "skills": [
-                "React",
-                "TypeScript",
-                "CSS",
-                "Tailwind",
-                "Figma",
-                "Accessibility"
-            ],
-            "experience": "3 years frontend development with focus on design systems.",
-            "profileUrls": {
-                "linkedin": "https://linkedin.com/in/anna-cermakova",
-                "portfolio": "https://annacermakova.dev"
-            }
-        },
-        {
-            "name": "Tomáš Horák",
-            "bio": "DevOps engineer with some frontend experience. Mainly focused on infrastructure.",
-            "skills": [
-                "Docker",
-                "Kubernetes",
-                "AWS",
-                "Python",
-                "React"
-            ],
-            "experience": "7 years in DevOps, occasional frontend work.",
-            "profileUrls": {
-                "github": "https://github.com/thorak"
-            }
-        },
-        {
-            "name": "Lucie Benešová",
-            "bio": "Junior developer eager to grow. Recent bootcamp graduate with React projects.",
-            "skills": [
-                "React",
-                "JavaScript",
-                "HTML",
-                "CSS",
-                "Git"
-            ],
-            "experience": "1 year learning, completed 3-month intensive bootcamp.",
-            "profileUrls": {
-                "github": "https://github.com/luciebenesova"
-            }
-        },
-        {
-            "name": "David Procházka",
-            "bio": "Experienced frontend architect with deep TypeScript knowledge. Speaker at local meetups.",
-            "skills": [
-                "TypeScript",
-                "React",
-                "Next.js",
-                "GraphQL",
-                "Testing",
-                "Webpack",
-                "Performance"
-            ],
-            "experience": "8 years frontend development, 3 years as tech lead.",
-            "profileUrls": {
-                "linkedin": "https://linkedin.com/in/david-prochazka",
-                "github": "https://github.com/dprochazka",
-                "twitter": "https://twitter.com/dprochazka"
-            }
-        }
-    ]
+    "maxCandidates": 5,
+    "enableRanking": true,
+    "topK": 3
 }

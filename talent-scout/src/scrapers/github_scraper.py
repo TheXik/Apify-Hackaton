@@ -7,13 +7,16 @@ Takes profile URLs (from Google search) and enriches them with full profile data
 
 import os
 import re
+import json
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 from apify_client import ApifyClient
 
 
-# GitHub Profile Scraper Actor
+# Actor IDs
 GITHUB_ACTOR_ID = "saswave/github-profile-scraper"
+GOOGLE_ACTOR_ID = "apify/google-search-scraper"
 
 
 class GitHubScraper:
@@ -31,6 +34,136 @@ class GitHubScraper:
             raise ValueError("APIFY_TOKEN is required")
         
         self.client = ApifyClient(self.apify_token)
+
+    def find_candidates_via_google(
+        self,
+        job_title: str,
+        skills: list[str],
+        location: str | None,
+        max_results: int = 20
+    ) -> list[dict]:
+        """
+        Search Google for GitHub profiles matching job criteria.
+        
+        Args:
+            job_title: Job title to search for
+            skills: List of required skills
+            location: Location filter
+            max_results: Maximum number of results to return
+            
+        Returns:
+            List of normalized profile objects from Google results
+        """
+        # Build optimized query
+        query = self._build_google_query(job_title, skills, location)
+        
+        # Calculate pages needed (10 results per page)
+        pages_needed = min((max_results + 9) // 10, 5)  # Cap at 5 pages
+        
+        google_input = {
+            "queries": query,
+            "maxPagesPerQuery": pages_needed,
+            "resultsPerPage": 10,
+            "countryCode": "us",
+            "languageCode": "en",
+        }
+        
+        try:
+            # Run Google Search Actor
+            run = self.client.actor(GOOGLE_ACTOR_ID).call(
+                run_input=google_input,
+                timeout_secs=300,
+            )
+            
+            # Extract and normalize profiles
+            profiles = []
+            dataset = self.client.dataset(run["defaultDatasetId"])
+            
+            for item in dataset.iterate_items():
+                for result in item.get("organicResults", []):
+                    url = result.get("url", "")
+                    
+                    if self._is_github_profile_url(url):
+                        profile = self._normalize_google_result(result)
+                        profiles.append(profile)
+                        
+                        if len(profiles) >= max_results:
+                            break
+                if len(profiles) >= max_results:
+                    break
+            
+            return profiles
+            
+        except Exception as e:
+            print(f"Google Search failed: {e}")
+            return []
+
+    def _build_google_query(
+        self,
+        job_title: str,
+        skills: list[str],
+        location: str | None,
+    ) -> str:
+        """Build Google search query."""
+        parts = [job_title]
+        if skills:
+            parts.extend(skills[:3])
+        if location:
+            parts.append(location)
+        
+        return " ".join(parts) + " site:github.com"
+
+    def _is_github_profile_url(self, url: str) -> bool:
+        """Check if URL is a GitHub user profile."""
+        if not url or "github.com" not in url:
+            return False
+            
+        # Exclude common non-profile paths
+        excluded = [
+            "/orgs/", "/topics/", "/explore", "/trending", "/collections",
+            "/sponsors/", "/features/", "/enterprise", "/pricing",
+            "/about/", "/github/", "/settings", "/marketplace",
+            "/pulls", "/issues", "/actions", "/projects", "/security",
+            "/blog/", "/customers/", "/events/", "/readme/"
+        ]
+        
+        if any(path in url.lower() for path in excluded):
+            return False
+            
+        # Match github.com/username
+        match = re.match(r"https?://(?:www\.)?github\.com/([a-zA-Z0-9_-]+)(?:\?.*)?$", url)
+        if match:
+            username = match.group(1).lower()
+            return username not in ["login", "join", "search", "notifications"]
+            
+        return False
+
+    def _normalize_google_result(self, result: dict) -> dict:
+        """Normalize Google result to GitHub profile format."""
+        url = result.get("url", "")
+        title = result.get("title", "")
+        
+        # Extract username
+        username = self.extract_username(url)
+        
+        # Extract name from title
+        name = None
+        clean_title = re.sub(r"\s*[-·|]\s*GitHub.*$", "", title, flags=re.IGNORECASE)
+        clean_title = re.sub(r"\s*\(.*?\)\s*$", "", clean_title)
+        if clean_title and " " in clean_title and not clean_title.startswith("@"):
+            name = clean_title.strip()
+            
+        return {
+            "source": "github",
+            "username": username,
+            "name": name,
+            "url": url,
+            "profileUrl": url,
+            "bio": result.get("description", ""),
+            "skills": result.get("emphasizedKeywords", []),
+            "googlePosition": result.get("position"),
+            "scrapedAt": datetime.now(timezone.utc).isoformat(),
+        }
     
     def extract_username(self, url: str) -> Optional[str]:
         """

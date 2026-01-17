@@ -67,3 +67,6 @@ logs/
 # Local data/results (optional - uncomment if you don't want to track these)
 # *.json
 # !test_input.json
+
+.venv/
+.venv/*

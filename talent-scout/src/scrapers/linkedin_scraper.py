@@ -90,18 +90,6 @@ class LinkedInScraper:
         
         return " ".join(parts)
     
-    def _build_search_url(self, query: str, location: Optional[str] = None) -> str:
-        """Build LinkedIn people search URL."""
-        from urllib.parse import quote_plus
-        
-        base_url = "https://www.linkedin.com/search/results/people/"
-        params = [f"keywords={quote_plus(query)}"]
-        
-        if location:
-            params.append(f"geoUrn={quote_plus(location)}")
-        
-        return f"{base_url}?{'&'.join(params)}"
-    
     def _normalize_profile(self, raw_profile: dict) -> dict:
         """
         Normalize LinkedIn profile data to standard candidate format.
@@ -112,6 +100,7 @@ class LinkedInScraper:
         Returns:
             Normalized profile dict
         """
+        # Handle different field names from different Actor versions
         # Handle different field names from different Actor versions
         name = (
             raw_profile.get("fullName") or 
@@ -134,12 +123,13 @@ class LinkedInScraper:
             ""
         )
         
-        # Extract skills from various possible fields
+        # Extract skills (handle both list of strings and list of dicts)
         skills = raw_profile.get("skills", [])
         if isinstance(skills, list) and skills:
-            # Handle if skills are objects with 'name' field
             if isinstance(skills[0], dict):
                 skills = [s.get("name", "") for s in skills if s.get("name")]
+            # Filter empty strings
+            skills = [s for s in skills if s]
         
         # Build experience summary
         experience = self._build_experience_string(raw_profile)
