@@ -1,8 +1,8 @@
 """
-Talent Scout - GitHub Profile Finder
+Talent Scout - Multi-Source Developer Finder
 
-Finds GitHub developer profiles using Google Search and stores them in dataset.
-Searches for developers matching job requirements on GitHub.
+Combines multi-source scraping (LinkedIn, Twitter, GitHub) with AI-powered candidate ranking.
+Searches for developers matching job requirements across multiple platforms.
 """
 
 from __future__ import annotations
@@ -15,8 +15,12 @@ from datetime import datetime, timezone
 from apify import Actor
 from apify_client import ApifyClient
 
+from .candidate_ranker import CandidateRanker
+from .scrapers import TwitterScraper
 
-# Google Search Actor ID
+
+# Actor IDs
+LINKEDIN_ACTOR_ID = "harvestapi/linkedin-profile-search"
 GOOGLE_ACTOR_ID = "apify/google-search-scraper"
 
 
@@ -28,9 +32,16 @@ async def main() -> None:
         
         job_title = actor_input.get("jobTitle")
         job_description = actor_input.get("jobDescription", "")
-        required_skills = actor_input.get("requiredSkills", [])
         location = actor_input.get("location")
-        max_results = actor_input.get("maxResults", 30)
+        max_candidates = actor_input.get("maxCandidates", 20)
+        required_skills = actor_input.get("requiredSkills", [])
+        nice_to_have = actor_input.get("niceToHave", [])
+        experience_years = actor_input.get("experienceYears", 0)
+        enable_ranking = actor_input.get("enableRanking", True)
+        top_k = actor_input.get("topK", 10)
+        
+        # Source toggles
+        sources = actor_input.get("sources", ["linkedin", "twitter"])
         
         # Validate required input
         if not job_title:
@@ -40,48 +51,193 @@ async def main() -> None:
         Actor.log.info(f"🎯 Searching for: {job_title}")
         Actor.log.info(f"🔧 Skills: {', '.join(required_skills) if required_skills else 'Any'}")
         Actor.log.info(f"📍 Location: {location or 'Any'}")
+        Actor.log.info(f"📊 Max candidates: {max_candidates}")
+        Actor.log.info(f"🔍 Sources: {', '.join(sources)}")
+        Actor.log.info(f"🤖 AI Ranking: {'Enabled' if enable_ranking else 'Disabled'}")
         
-        # Get Apify client
+        all_candidates = []
+        
+        # Get Apify client for external actors
         apify_token = os.environ.get("APIFY_TOKEN")
-        if not apify_token:
-            await Actor.fail("APIFY_TOKEN not found in environment")
-            return
+        client = ApifyClient(apify_token) if apify_token else None
         
-        client = ApifyClient(apify_token)
+        # Search LinkedIn
+        if "linkedin" in sources:
+            await Actor.set_status_message("Searching LinkedIn for candidates...")
+            linkedin_profiles = await search_linkedin(
+                job_title=job_title,
+                location=location,
+                max_items=max_candidates,
+            )
+            
+            if linkedin_profiles:
+                Actor.log.info(f"✅ Found {len(linkedin_profiles)} profiles from LinkedIn")
+                for profile in linkedin_profiles:
+                    all_candidates.append({
+                        "name": profile.get("fullName", profile.get("name", "Unknown")),
+                        "bio": profile.get("headline", profile.get("summary", "")),
+                        "skills": profile.get("skills", []),
+                        "experience": profile.get("experience", ""),
+                        "location": profile.get("location", ""),
+                        "profileUrls": {
+                            "linkedin": profile.get("profileUrl", profile.get("url", ""))
+                        },
+                        "source": "linkedin",
+                        "rawProfile": profile
+                    })
         
-        # Build Google search query for GitHub profiles
-        search_query = build_github_search_query(
-            job_title=job_title,
-            skills=required_skills,
-            location=location,
-        )
+        # Search Twitter
+        if "twitter" in sources:
+            await Actor.set_status_message("Searching Twitter for candidates...")
+            try:
+                twitter_scraper = TwitterScraper()
+                twitter_candidates = twitter_scraper.search(
+                    position=job_title,
+                    max_items=max_candidates
+                )
+                
+                if twitter_candidates:
+                    Actor.log.info(f"✅ Found {len(twitter_candidates)} profiles from Twitter")
+                    all_candidates.extend(twitter_candidates)
+                    
+            except Exception as e:
+                Actor.log.warning(f"Twitter search failed: {e}")
         
-        Actor.log.info(f"🔍 Google query: {search_query}")
-        await Actor.set_status_message("Searching for GitHub profiles...")
+        # Search GitHub
+        if "github" in sources and client:
+            await Actor.set_status_message("Searching GitHub for candidates...")
+            try:
+                search_query = build_github_search_query(
+                    job_title=job_title,
+                    skills=required_skills,
+                    location=location,
+                )
+                
+                github_profiles = await search_github_profiles(
+                    client=client,
+                    query=search_query,
+                    max_results=max_candidates,
+                )
+                
+                if github_profiles:
+                    Actor.log.info(f"✅ Found {len(github_profiles)} profiles from GitHub")
+                    for profile in github_profiles:
+                        all_candidates.append({
+                            "name": profile.get("name", profile.get("username", "Unknown")),
+                            "bio": profile.get("bio", ""),
+                            "skills": profile.get("skills", []),
+                            "experience": "",
+                            "location": "",
+                            "profileUrls": {
+                                "github": profile.get("profileUrl", profile.get("url", ""))
+                            },
+                            "source": "github",
+                            "rawProfile": profile
+                        })
+                        
+            except Exception as e:
+                Actor.log.warning(f"GitHub search failed: {e}")
         
-        # Run Google Search
-        profiles = await search_github_profiles(
-            client=client,
-            query=search_query,
-            max_results=max_results,
-        )
-        
-        if not profiles:
-            Actor.log.warning("No GitHub profiles found")
+        # Check if we found any candidates
+        if not all_candidates:
+            Actor.log.warning("No candidates found from any source")
             await Actor.push_data({
-                "status": "no_results",
-                "query": search_query,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "candidates": [],
+                "metadata": {
+                    "totalFound": 0,
+                    "searchQuery": job_title,
+                    "sources": sources,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
             })
             return
         
-        Actor.log.info(f"✅ Found {len(profiles)} GitHub profiles")
+        Actor.log.info(f"📊 Total candidates from all sources: {len(all_candidates)}")
         
-        # Store each profile in dataset
-        for profile in profiles:
-            await Actor.push_data(profile)
+        # AI Ranking (if enabled and OpenAI key available)
+        if enable_ranking:
+            openai_api_key = os.environ.get("OPENAI_API_KEY")
+            
+            if openai_api_key and job_description:
+                await Actor.set_status_message(f"Ranking {len(all_candidates)} candidates with AI...")
+                Actor.log.info("🤖 Starting AI ranking...")
+                
+                try:
+                    ranker = CandidateRanker(openai_api_key)
+                    
+                    job_input = {
+                        "jobTitle": job_title,
+                        "jobDescription": job_description,
+                        "requiredSkills": required_skills,
+                        "niceToHave": nice_to_have,
+                        "location": location or "",
+                        "experienceYears": experience_years
+                    }
+                    
+                    ranked_candidates = ranker.rank_candidates(
+                        job_input=job_input,
+                        candidates=all_candidates,
+                        top_k=top_k
+                    )
+                    
+                    Actor.log.info(f"✅ Ranked {len(ranked_candidates)} candidates")
+                    
+                    # Push ranked results
+                    await Actor.push_data({
+                        "jobTitle": job_title,
+                        "totalFound": len(all_candidates),
+                        "ranked": True,
+                        "sources": sources,
+                        "candidates": ranked_candidates,
+                        "metadata": {
+                            "searchQuery": job_title,
+                            "location": location,
+                            "sources": sources,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                    })
+                    
+                    await Actor.set_status_message(
+                        f"Done! Ranked {len(ranked_candidates)} of {len(all_candidates)} candidates"
+                    )
+                    return
+                    
+                except Exception as e:
+                    Actor.log.error(f"AI ranking failed: {e}")
+                    Actor.log.info("Falling back to unranked results...")
+            else:
+                if not openai_api_key:
+                    Actor.log.warning("OPENAI_API_KEY not set - skipping AI ranking")
+                if not job_description:
+                    Actor.log.warning("No job description provided - skipping AI ranking")
         
-        await Actor.set_status_message(f"Done! Found {len(profiles)} GitHub profiles")
+        # Fallback: Push unranked candidates
+        await Actor.push_data({
+            "jobTitle": job_title,
+            "totalFound": len(all_candidates),
+            "ranked": False,
+            "sources": sources,
+            "candidates": all_candidates,
+            "metadata": {
+                "searchQuery": job_title,
+                "location": location,
+                "sources": sources,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        })
+        
+        await Actor.set_status_message(f"Done! Found {len(all_candidates)} candidates (unranked)")
+
+
+async def search_linkedin(
+    job_title: str,
+    location: str | None,
+    max_items: int,
+) -> list[dict]:
+    """Search LinkedIn for candidate profiles."""
+    # Placeholder - LinkedIn search implementation
+    # Would call LINKEDIN_ACTOR_ID with appropriate input
+    return []
 
 
 def build_github_search_query(

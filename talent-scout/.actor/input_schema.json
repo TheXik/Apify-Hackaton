@@ -1,29 +1,40 @@
 {
-    "title": "Talent Scout - GitHub Profile Finder",
+    "title": "Talent Scout Input",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
         "jobTitle": {
-            "title": "Job Title",
+            "title": "Job Title / Search Query",
             "type": "string",
-            "description": "The job title/role to search for (e.g., 'Frontend Developer', 'Machine Learning Engineer')",
+            "description": "The job title or search query to find candidates (e.g., 'Senior Frontend Developer')",
             "editor": "textfield",
             "prefill": "Frontend Developer"
         },
         "jobDescription": {
             "title": "Job Description",
             "type": "string",
-            "description": "Optional job description for context",
-            "editor": "textarea",
-            "nullable": true
+            "description": "Detailed description of the job for AI ranking. Required for AI-powered ranking.",
+            "editor": "textarea"
         },
         "requiredSkills": {
             "title": "Required Skills",
             "type": "array",
-            "description": "Skills to search for (e.g., 'React', 'Python', 'Kubernetes')",
+            "description": "List of must-have skills for this position",
+            "items": {
+                "type": "string"
+            },
             "editor": "stringList",
             "prefill": ["React", "TypeScript"],
             "default": []
+        },
+        "niceToHave": {
+            "title": "Nice to Have Skills",
+            "type": "array",
+            "description": "Optional skills that would be a bonus",
+            "items": {
+                "type": "string"
+            },
+            "editor": "stringList"
         },
         "location": {
             "title": "Location",
@@ -32,14 +43,48 @@
             "editor": "textfield",
             "nullable": true
         },
-        "maxResults": {
-            "title": "Maximum Results",
+        "maxCandidates": {
+            "title": "Maximum Candidates",
             "type": "integer",
-            "description": "Maximum number of GitHub profiles to return",
-            "default": 30,
+            "description": "Maximum number of candidates to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 1000
+        },
+        "sources": {
+            "title": "Data Sources",
+            "type": "array",
+            "description": "Which platforms to search for candidates",
+            "items": {
+                "type": "string",
+                "enum": ["linkedin", "twitter", "github"]
+            },
+            "editor": "select",
+            "default": ["linkedin", "twitter"]
+        },
+        "enableRanking": {
+            "title": "Enable AI Ranking",
+            "type": "boolean",
+            "description": "Use AI to rank candidates by fit (requires OPENAI_API_KEY and job description)",
+            "default": true
+        },
+        "topK": {
+            "title": "Top K Results",
+            "type": "integer",
+            "description": "Number of top-ranked candidates to return when AI ranking is enabled",
+            "default": 10,
             "minimum": 1,
             "maximum": 100
+        },
+        "experienceYears": {
+            "title": "Minimum Experience (Years)",
+            "type": "integer",
+            "description": "Minimum years of experience required",
+            "default": 0,
+            "minimum": 0
         }
     },
-    "required": ["jobTitle"]
+    "required": [
+        "jobTitle"
+    ]
 }
